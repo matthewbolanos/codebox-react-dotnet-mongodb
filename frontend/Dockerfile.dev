@@ -1,0 +1,23 @@
+# Use the official Node.js LTS image for development
+FROM node:lts-buster
+
+# Set the working directory
+WORKDIR /app
+
+# Copy package.json and package-lock.json first to leverage Docker cache
+COPY package.json package-lock.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy the rest of the application code
+COPY . .
+
+# Ensure npm is executable
+RUN ls -la /usr/local/bin/npm && npm --version
+
+# Expose port for the React development server
+EXPOSE 3000
+
+# Start the React development server
+CMD ["npm", "start"]

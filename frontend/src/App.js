@@ -1,50 +1,51 @@
 import React from "react";
 import axios from "axios";
 import "./App.scss";
-import AddTodo from "./components/AddTodo";
-import TodoList from "./components/TodoList";
+import SubmissionList from "./components/SubmissionList";
+import SubmissionDetail from "./components/SubmissionDetail";
 
 export default class App extends React.Component {
   constructor(props) {
     super(props);
 
     this.state = {
-      todos: [],
+      submissions: [],
+      selectedSubmission: null,
     };
   }
 
   componentDidMount() {
     axios
-      .get("/api/todos")
+      .get("/api/lead-form-submissions")
       .then((response) => {
         this.setState({
-          todos: response.data,
+          submissions: response.data,
         });
       })
       .catch((e) => console.log("Error : ", e));
   }
 
-  handleAddTodo = (value) => {
-    axios
-      .post("/api/todos", { text: value })
-      .then(() => {
-        this.setState({
-          todos: [...this.state.todos, { text: value }],
-        });
-      })
-      .catch((e) => console.log("Error : ", e));
+  handleSelectSubmission = (submission) => {
+    this.setState({ selectedSubmission: submission });
   };
 
   render() {
+    const { submissions, selectedSubmission } = this.state;
+
     return (
       <div className="App container">
         <div className="container-fluid">
           <div className="row">
             <div className="col-xs-12 col-sm-8 col-md-8 offset-md-2">
-              <h1>Todos</h1>
+              <h1>Submissions</h1>
               <div className="todo-app">
-                <AddTodo handleAddTodo={this.handleAddTodo} />
-                <TodoList todos={this.state.todos} />
+                <SubmissionList
+                  submissions={submissions}
+                  onSelect={this.handleSelectSubmission}
+                />
+                {selectedSubmission && (
+                  <SubmissionDetail submission={selectedSubmission} />
+                )}
               </div>
             </div>
           </div>

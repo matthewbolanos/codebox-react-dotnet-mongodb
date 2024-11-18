@@ -6,6 +6,8 @@ using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
 using Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
+using Azure.AI.Projects;
+using Azure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,9 +17,17 @@ builder.Services.AddSwaggerGen();
 
 string connectionString = builder.Configuration.GetConnectionString("DocumentDbConnection");
 string databaseName = builder.Configuration.GetConnectionString("DocumentDbName") ?? "BackendMongoDb";
-string collectionName = builder.Configuration.GetConnectionString("DocumentCollectionName") ?? "ToDos";
+string collectionName = builder.Configuration.GetConnectionString("DocumentCollectionName") ?? "LeadFormSubmissions";
 
-builder.Services.AddTransient<MongoClient>((_provider) => new MongoClient(connectionString));
+builder.Services.AddTransient((_provider) => new MongoClient(connectionString));
+builder.Services.AddSingleton((sp)=>{
+    var connectionString = Environment.GetEnvironmentVariable("PROJECT_CONNECTION_STRING");
+    return new AgentsClient(connectionString, new DefaultAzureCredential());
+});
+builder.Services.AddSingleton((sp)=>{
+    AgentsClient client = sp.GetRequiredService<AgentsClient>();
+    return client.GetAgent(Environment.GetEnvironmentVariable("AGENT_ID")).Value;
+});
 
 var app = builder.Build();
 
@@ -34,12 +44,12 @@ if (app.Environment.IsDevelopment() || isSwaggerEnabledFromConfig)
     app.UseSwaggerUI();
 }
 
-app.MapGet("/api/todos", async (MongoClient connection) =>
+app.MapGet("/api/lead-form-submissions", async (MongoClient connection) =>
 {
     try
     {
         var database = connection.GetDatabase(databaseName);
-        var collection = database.GetCollection<ToDo>(collectionName);
+        var collection = database.GetCollection<LeadFormSubmission>(collectionName);
         var results = await collection.Find(_ => true).ToListAsync().ConfigureAwait(false);
 
         return Results.Ok(results);
@@ -50,20 +60,20 @@ app.MapGet("/api/todos", async (MongoClient connection) =>
     }
 });
 
-app.MapGet("/api/todos/{id}", async (string id, MongoClient connection) =>
+app.MapGet("/api/lead-form-submissions/{id}", async (string id, MongoClient connection) =>
 {
     try
     {
         var database = connection.GetDatabase(databaseName);
-        var collection = database.GetCollection<ToDo>(collectionName);
-        var result = await collection.FindAsync(record => record.Id == id).ConfigureAwait(false) as ToDo;
+        var collection = database.GetCollection<LeadFormSubmission>(collectionName);
+        var result = await collection.FindAsync(record => record.Id == id).ConfigureAwait(false) as LeadFormSubmission;
         
         if (result is null) 
         {
             return Results.NotFound();
         }
 
-        return Results.Created($"/todoitems/{result.Id}", result);
+        return Results.Created($"/lead-form-submissions/{result.Id}", result);
     }
     catch (Exception ex)
     {
@@ -71,15 +81,17 @@ app.MapGet("/api/todos/{id}", async (string id, MongoClient connection) =>
     }
 });
 
-app.MapPost("/api/todos", async (ToDo record, MongoClient connection) =>
+app.MapPost("/api/lead-form-submissions", async (LeadFormSubmission record, MongoClient connection) =>
 {
     try
     {
         var database = connection.GetDatabase(databaseName);
-        var collection = database.GetCollection<ToDo>(collectionName);
+        var collection = database.GetCollection<LeadFormSubmission>(collectionName);
         await collection.InsertOneAsync(record).ConfigureAwait(false);
 
-        return Results.Created($"/api/todos/{record.Id}", record);
+        // Use agent to generate
+
+        return Results.Created($"/api/lead-form-submissions/{record.Id}", record);
     }
     catch (Exception ex)
     {

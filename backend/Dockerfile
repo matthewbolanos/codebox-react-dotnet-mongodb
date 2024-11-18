@@ -1,17 +1,20 @@
-
-FROM mcr.microsoft.com/dotnet/aspnet:6.0 as base
+FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
 WORKDIR /app
+EXPOSE 8000
 
 FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
-COPY . /src
 WORKDIR /src
-RUN ls
-RUN dotnet build "aspnetapp.csproj" -c Release -o /app/build
+COPY *.csproj ./
+RUN dotnet restore
+
+COPY . .
+WORKDIR /src
+RUN dotnet build -c Debug -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "aspnetapp.csproj" -c Release -o /app/publish
+RUN dotnet publish -c Debug -o /app/publish
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "aspnetapp.dll"]
+ENTRYPOINT ["dotnet", "watch", "run", "--urls", "http://0.0.0.0:8000"]

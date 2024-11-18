@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "codebox_react_dotnet_mongodb": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 7064",
+      "launchBrowser": false
+    }
+  }
+}

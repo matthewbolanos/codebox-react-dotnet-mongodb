@@ -1,34 +1,45 @@
+version: '3.8'
+
 services:
   frontend:
     build:
       context: frontend
+      dockerfile: Dockerfile.dev
     ports:
-      - 80:80
+      - 3000:3000
     volumes:
-      - '.:/app'
-      - '/app/node_modules'
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
     networks:
       - react-frontend
     depends_on:
       - backend
     links:
       - backend
+    command: npm start
 
   backend:
-    build: backend
-    restart: always
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend:/src
+      - /app/publish
     ports:
       - 8000:8000
-    depends_on: 
-      - mongo
-    links:
-      - mongo
     environment:
       - ASPNETCORE_URLS=http://+:8000
       - EnableSwagger=true
     networks:
       - react-backend
       - react-frontend
+    depends_on:
+      - mongo
+    links:
+      - mongo
+    command: ["dotnet", "watch", "run", "--urls", "http://0.0.0.0:8000"]
 
   mongo:
     restart: always
