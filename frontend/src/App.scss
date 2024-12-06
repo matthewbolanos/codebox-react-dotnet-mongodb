@@ -1,5 +1,6 @@
 .App {
-  text-align: center;
+  text-align: left;
+  margin-top:1rem;
 }
 
 .todo-app {
@@ -9,6 +10,11 @@
 
 .list-group-item {
   cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.list-group-item:hover {
+  background-color: #f8f9fa;
 }
 
 .list-group-item.active {
@@ -16,8 +22,29 @@
   color: white;
 }
 
+.list-group-item.active h6,
+.list-group-item.active small {
+  color: white;
+}
+
 .submission-detail {
   background-color: #ffffff;
   border: 1px solid #ddd;
   border-radius: 0.25rem;
+  text-align: left;
+}
+
+/* Adjust the left list styling */
+.list-group-item h6 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.list-group-item small {
+  font-size: 0.875rem;
+}
+
+.list-group-item .text-success,
+.list-group-item .text-warning {
+  font-size: 1.2rem;
 }

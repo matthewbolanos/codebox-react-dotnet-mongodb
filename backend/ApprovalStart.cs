@@ -3,11 +3,14 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace Models;
 
-public class LeadFormSubmission
+public class ApprovalStart
 {
-    [BsonId]
-    [BsonRepresentation(BsonType.ObjectId)]
-    public string Id { get; set; }
+    public string FormInputId { get; set; }
+
+    public string InstanceId { get; set; }
+    public string Subject { get; set; }
+    public string Message { get; set; } 
+
     public string Name { get; set; }
 
     public string Industry { get; set; }
@@ -17,9 +20,4 @@ public class LeadFormSubmission
     public string ProcessFrequency { get; set; }
 
     public string ProcessDuration { get; set; }
-
-    public string InstanceId { get; set; }
-
-    public string Subject { get; set; }
-    public string Message { get; set; }
 }

@@ -34,20 +34,22 @@ export default class App extends React.Component {
 
     return (
       <div className="App container">
-        <div className="container-fluid">
-          <div className="row">
-            <div className="col-xs-12 col-sm-8 col-md-8 offset-md-2">
-              <h1>Submissions</h1>
-              <div className="todo-app">
-                <SubmissionList
-                  submissions={submissions}
-                  onSelect={this.handleSelectSubmission}
-                />
-                {selectedSubmission && (
-                  <SubmissionDetail submission={selectedSubmission} />
-                )}
+        <div className="row">
+          <div className="col-md-4">
+            <h2>Submissions</h2>
+            <SubmissionList
+              submissions={submissions}
+              onSelect={this.handleSelectSubmission}
+            />
+          </div>
+          <div className="col-md-8">
+            {selectedSubmission ? (
+              <SubmissionDetail submission={selectedSubmission} />
+            ) : (
+              <div className="alert alert-info mt-3">
+                Please select a submission to view details.
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Azure.AI.Projects" Version="1.0.0-alpha.20241114.3" />
+    <PackageReference Include="Markdig" Version="0.38.0" />
     <PackageReference Include="MongoDb.Driver" Version="2.16.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.2.3" />
     <PackageReference Include="Azure.Core" Version="1.44.1" />

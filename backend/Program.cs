@@ -8,6 +8,7 @@ using Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using Azure.AI.Projects;
 using Azure.Identity;
+using Azure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,15 +19,20 @@ builder.Services.AddSwaggerGen();
 string connectionString = builder.Configuration.GetConnectionString("DocumentDbConnection");
 string databaseName = builder.Configuration.GetConnectionString("DocumentDbName") ?? "BackendMongoDb";
 string collectionName = builder.Configuration.GetConnectionString("DocumentCollectionName") ?? "LeadFormSubmissions";
+string projectConnection = builder.Configuration.GetConnectionString("AzureAIProjectConnectionString");
+string agentId = builder.Configuration.GetConnectionString("AgentId") ?? "AgentId";
 
 builder.Services.AddTransient((_provider) => new MongoClient(connectionString));
 builder.Services.AddSingleton((sp)=>{
-    var connectionString = Environment.GetEnvironmentVariable("PROJECT_CONNECTION_STRING");
-    return new AgentsClient(connectionString, new DefaultAzureCredential());
-});
-builder.Services.AddSingleton((sp)=>{
     AgentsClient client = sp.GetRequiredService<AgentsClient>();
     return client.GetAgent(Environment.GetEnvironmentVariable("AGENT_ID")).Value;
+});
+builder.Services.AddSingleton((sp)=>{
+    var credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
+        {
+            ManagedIdentityClientId = "8824975f-d18e-4a20-ada9-55b0710d414c"
+        });
+    return new AgentsClient(projectConnection, credential);
 });
 
 var app = builder.Build();
@@ -81,6 +87,22 @@ app.MapGet("/api/lead-form-submissions/{id}", async (string id, MongoClient conn
     }
 });
 
+app.MapGet("/api/delete-all-form-submissions", async (MongoClient connection) =>
+{
+    try
+    {
+        var database = connection.GetDatabase(databaseName);
+        var collection = database.GetCollection<LeadFormSubmission>(collectionName);
+        await collection.DeleteManyAsync(_ => true).ConfigureAwait(false);
+
+        return Results.Ok("All form submissions deleted.");
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(detail: ex.ToString());
+    }
+});
+
 app.MapPost("/api/lead-form-submissions", async (LeadFormSubmission record, MongoClient connection) =>
 {
     try
@@ -88,8 +110,29 @@ app.MapPost("/api/lead-form-submissions", async (LeadFormSubmission record, Mong
         var database = connection.GetDatabase(databaseName);
         var collection = database.GetCollection<LeadFormSubmission>(collectionName);
         await collection.InsertOneAsync(record).ConfigureAwait(false);
+        
+        var client = app.Services.GetRequiredService<AgentsClient>();
 
-        // Use agent to generate
+        Response<AgentThread> threadResponse = await client.CreateThreadAsync();
+        AgentThread thread = threadResponse.Value;
+
+        var messagePayload = $@"
+        {{
+            ""formInputId"": ""{record.Id}"",
+            ""name"": ""Mads Bolaris"",
+            ""industry"": ""{record.Industry}"",
+            ""description"": ""{record.BusinessProcessDescription}"",
+            ""frequency"": ""{record.ProcessFrequency}"",
+            ""duration"": ""{record.ProcessDuration}""
+        }}";
+
+        Response<ThreadMessage> messageResponse = await client.CreateMessageAsync(
+            thread.Id,
+            MessageRole.User,
+            messagePayload);
+        ThreadMessage message = messageResponse.Value;
+
+        await client.CreateRunAsync(thread.Id, agentId);
 
         return Results.Created($"/api/lead-form-submissions/{record.Id}", record);
     }
@@ -98,5 +141,68 @@ app.MapPost("/api/lead-form-submissions", async (LeadFormSubmission record, Mong
         return Results.Problem(detail: ex.ToString());
     }
 });
+
+app.MapPost("/api/lead-form-submissions/start-approval", async (ApprovalStart record, MongoClient connection) =>
+{
+    try
+    {
+        if (record is null)
+        {
+            return Results.BadRequest("Invalid or missing record data.");
+        }
+
+        var database = connection.GetDatabase(databaseName);
+        var collection = database.GetCollection<LeadFormSubmission>(collectionName);
+
+        if (record.FormInputId is null)
+        {
+            // Create a new record
+            var newRecord = new LeadFormSubmission
+            {
+                Id = ObjectId.GenerateNewId().ToString(),
+                InstanceId = record.InstanceId,
+                Subject = record.Subject,
+                Message = record.Message,
+                Name = record.Name,
+                Industry = record.Industry,
+                BusinessProcessDescription = record.BusinessProcessDescription,
+                ProcessFrequency = record.ProcessFrequency,
+                ProcessDuration = record.ProcessDuration
+            };
+
+            await collection.InsertOneAsync(newRecord).ConfigureAwait(false);
+
+            return Results.Created($"/api/lead-form-submissions/{newRecord.Id}", newRecord);
+        }
+        else
+        {
+            // Combine update operations
+            var updateDefinition = Builders<LeadFormSubmission>.Update.Combine(
+                Builders<LeadFormSubmission>.Update.Set(l => l.InstanceId, record.InstanceId),
+                Builders<LeadFormSubmission>.Update.Set(l => l.Subject, record.Subject),
+                Builders<LeadFormSubmission>.Update.Set(l => l.Message, record.Message)
+            );
+
+            // Perform the update
+            var result = await collection.FindOneAndUpdateAsync(
+                Builders<LeadFormSubmission>.Filter.Eq(l => l.Id, record.FormInputId),
+                updateDefinition
+            ).ConfigureAwait(false);
+
+            // if not, create a new record
+
+            if (result is null)
+            {
+                return Results.NotFound($"No lead form submission found with ID: {record.FormInputId}");
+            }
+            return Results.Created($"/api/lead-form-submissions/{result.Id}", result);
+        }
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"An error occurred: {ex.Message}", statusCode: 500);
+    }
+});
+
 
 app.Run();

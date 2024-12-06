@@ -27,6 +27,7 @@ services:
     volumes:
       - ./backend:/src
       - /app/publish
+      - /Users/matthewbolanos/.azure:/root/.azure
     ports:
       - 8000:8000
     environment:
